@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useMemo,
 } from "react";
 
 const DataContext = createContext({});
@@ -19,6 +20,21 @@ export const api = {
 export const DataProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+
+  // Création d'un tableau avec les événements triés par date du plus récent au plus ancien
+  const eventsByDateDesc = useMemo(
+    () =>
+      data && data.events
+        ? [...data.events].sort((evtA, evtB) =>
+            new Date(evtA.date) < new Date(evtB.date) ? 1 : -1
+          )
+        : [],
+    [data]
+  );
+
+  // Variable pour récuperer l'événements le plus récent
+  const last = useMemo(() => (eventsByDateDesc.length > 0 ? eventsByDateDesc[0] : null), [eventsByDateDesc]);
+
   const getData = useCallback(async () => {
     try {
       setData(await api.loadData());
@@ -26,19 +42,23 @@ export const DataProvider = ({ children }) => {
       setError(err);
     }
   }, []);
+
   useEffect(() => {
     if (data) return;
     getData();
-  });
-  
+  }, [data, getData]);
+
+  const contextValue = useMemo(
+    () => ({
+      data,
+      error,
+      last,
+    }),
+    [data, error, last]
+  );
+
   return (
-    <DataContext.Provider
-      // eslint-disable-next-line react/jsx-no-constructed-context-values
-      value={{
-        data,
-        error,
-      }}
-    >
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );
@@ -46,7 +66,7 @@ export const DataProvider = ({ children }) => {
 
 DataProvider.propTypes = {
   children: PropTypes.node.isRequired,
-}
+};
 
 export const useData = () => useContext(DataContext);
 
